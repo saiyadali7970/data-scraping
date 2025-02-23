@@ -1,35 +1,36 @@
-name: Booking.com Scraper (Windows)
+name: Automated Data Scraper (Windows)
 
 on:
   schedule:
-    - cron: '0 4 * * *'  # Runs at 10 AM IST (4 AM UTC)
-  workflow_dispatch:  # Allows manual run
+    - cron: "0 10 * * *"  # Runs daily at 10 AM UTC
+  workflow_dispatch:  # Allows manual execution
 
 jobs:
   scrape:
-    runs-on: windows-latest
+    runs-on: windows-latest  # Runs on a Windows environment
 
     steps:
-      - name: ⬇️ Checkout repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: 🏗 Set up Python
+      - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.13.2'
+          python-version: "3.13.2"  # Specify the Python version
 
-      - name: 📦 Install dependencies
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install playwright
-          playwright install
+          pip install -r requirements.txt
+          playwright install  # Install Playwright browsers
 
-      - name: 🚀 Run Scraper
-        shell: bash
+      - name: Run scraper
         run: python main.py
 
-      - name: 📤 Upload CSV
-        uses: actions/upload-artifact@v3
-        with:
-          name: scraped-data
-          path: booking_results.csv
+      - name: Commit and Push Data
+        run: |
+          git config --global user.email "github-actions@github.com"
+          git config --global user.name "GitHub Actions"
+          git add scraped_data.csv
+          git commit -m "Automated data update [skip ci]" || echo "No changes to commit"
+          git push
