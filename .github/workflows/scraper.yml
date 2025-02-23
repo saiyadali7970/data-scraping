@@ -28,9 +28,11 @@ jobs:
         run: python main.py
 
       - name: Commit and Push Data
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config --global user.email "github-actions@github.com"
           git config --global user.name "GitHub Actions"
-          git add scraped_data.csv
+          git add booking_results.csv
           git commit -m "Automated data update [skip ci]" || echo "No changes to commit"
           git push
