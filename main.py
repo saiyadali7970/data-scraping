@@ -1,83 +1,96 @@
 import asyncio
 import csv
+import sys
 from datetime import datetime, timedelta
 from playwright.async_api import async_playwright
 
+# ✅ Fix: Force UTF-8 Encoding (For Windows Terminal & GitHub Actions)
+sys.stdout.reconfigure(encoding='utf-8')
+
+# 🌐 Target Website
 URL = "https://www.booking.com/"
 BROWSER_WS = "wss://brd-customer-hl_acc3d670-zone-scraping_browser1:etvasmpykg8v@brd.superproxy.io:9222"
 
-# Function to calculate check-in/check-out dates
+# 📌 Function to calculate check-in/check-out dates
 def add_days(date, days):
     return (date + timedelta(days=days)).strftime("%Y-%m-%d")
 
-# Main function
+# 🌍 Main scraping function
 async def run(url):
-    print("Connecting to browser...")
+    print("🔄 Connecting to remote browser...")
     async with async_playwright() as p:
-        browser = await p.chromium.connect_over_cdp(BROWSER_WS)
-        print("Connected! Navigating to site...")
-        page = await browser.new_page()
-        await page.goto(url, wait_until="domcontentloaded", timeout=60000)
+        try:
+            browser = await p.chromium.connect_over_cdp(BROWSER_WS)
+            print("✅ Connected! Navigating to Booking.com...")
 
-        print("Navigated! Waiting for popup...")
-        await close_popup(page)
-        await interact(page)
-        
-        print("Parsing data...")
-        data = await parse(page)
-        print(f"Data parsed: {data}")
+            page = await browser.new_page()
+            await page.goto(url, wait_until="domcontentloaded", timeout=60000)
 
-        # Save data to CSV
-        save_to_csv(data)
+            print("✅ Page loaded! Checking for popups...")
+            await close_popup(page)
 
-        await browser.close()
+            print("✅ Interacting with search form...")
+            await interact(page)
 
-# Function to close popups (if any)
+            print("✅ Extracting hotel data...")
+            data = await parse(page)
+
+            print(f"📊 Data parsed successfully! Found {len(data)} hotels.")
+            
+            # Save Data
+            save_to_csv(data)
+
+        except Exception as e:
+            print(f"❌ Error: {e}")
+        finally:
+            await browser.close()
+            print("📌 Browser closed.")
+
+# ❌ Function to close popups (if any)
 async def close_popup(page):
     try:
         close_btn = await page.wait_for_selector('[aria-label="Dismiss sign-in info."]', timeout=25000)
         if close_btn:
-            print("Popup appeared! Closing...")
+            print("⚠️ Popup detected! Closing...")
             await close_btn.click()
-            print("Popup closed!")
+            print("✅ Popup closed!")
     except:
-        print("Popup didn't appear.")
+        print("🔹 No popup detected.")
 
-# Function to fill search form and submit
+# 🔎 Function to fill search form
 async def interact(page):
     search_text = "Mumbai"
     check_in = add_days(datetime.now(), 1)
     check_out = add_days(datetime.now(), 2)
-    
-    await asyncio.sleep(2)  # Small delay
-    print("Waiting for search form...")
-    search_input = await page.wait_for_selector('[data-testid="destination-container"] input', timeout=60000)
-    print("Search form appeared! Filling it...")
 
+    await asyncio.sleep(2)  # Small delay to ensure elements are visible
+    print("⌛ Waiting for search input field...")
+    search_input = await page.wait_for_selector('[data-testid="destination-container"] input', timeout=60000)
+
+    print("✅ Search form found! Entering details...")
     await search_input.fill(search_text)
+
+    print("📅 Selecting check-in/check-out dates...")
     await page.click('[data-testid="searchbox-dates-container"] button')
     await page.wait_for_selector('[data-testid="searchbox-datepicker-calendar"]')
     await page.click(f'[data-date="{check_in}"]')
     await page.click(f'[data-date="{check_out}"]')
 
-    print("Form filled! Waiting before clicking submit...")
-    await asyncio.sleep(2)  # Small delay before clicking
-
-    print("Clicking submit button...")
+    print("✅ Form filled! Clicking search button...")
+    await asyncio.sleep(2)  # Prevent fast interactions
     await page.click('button[type="submit"]')
 
-    # **Wait for search results instead of just waiting for load_state**
-    print("Waiting for search results to load...")
+    print("⌛ Waiting for search results...")
     await page.wait_for_selector('[data-testid="property-card"]', timeout=60000)
-    print("Results loaded!")
+    print("✅ Search results loaded!")
 
-# Function to parse search results
+# 🏨 Function to parse hotel results
 async def parse(page):
     return await page.eval_on_selector_all(
         '[data-testid="property-card"]',
         """els => els.map(el => {
-            const name = el.querySelector('[data-testid="title"]')?.innerText || 'N/A';
-            const price = el.querySelector('[data-testid="price-and-discounted-price"]')?.innerText || 'N/A';
+            const name = el.querySelector('[data-testid="title"]')?.innerText.trim() || 'N/A';
+            const price = el.querySelector('[data-testid="price-and-discounted-price"]')?.innerText.replace(/[^0-9]/g, '') || 'N/A';
             const review_score = el.querySelector('[data-testid="review-score"]')?.innerText || '';
             const [score_str, , , reviews_str = ''] = review_score.split('\\n');
             const score = parseFloat(score_str) || score_str;
@@ -86,7 +99,7 @@ async def parse(page):
         })"""
     )
 
-# Function to save data to CSV
+# 📂 Function to save results to CSV
 def save_to_csv(data):
     filename = "booking_results.csv"
     with open(filename, mode="w", newline="", encoding="utf-8") as file:
@@ -94,8 +107,8 @@ def save_to_csv(data):
         writer.writeheader()
         writer.writerows(data)
 
-    print(f"✅ Data successfully saved to {filename}")
+    print(f"📁 Data saved successfully to {filename}")
 
-# Run the script
+# 🚀 Run the scraper
 if __name__ == "__main__":
     asyncio.run(run(URL))
