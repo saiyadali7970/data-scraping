@@ -2,7 +2,7 @@ name: Automated Data Scraper (Windows)
 
 on:
   schedule:
-    - cron: "0 10 * * *"  # Runs daily at 10 AM UTC
+    - cron: "5 5 * * *"  # Runs daily at 5:05 AM UTC (10:35 AM IST)
   workflow_dispatch:  # Allows manual execution
 
 jobs:
@@ -16,7 +16,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.13.2"  # Specify the Python version
+          python-version: "3.13.2"  
 
       - name: Install dependencies
         run: |
